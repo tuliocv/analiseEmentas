@@ -1,8 +1,8 @@
 streamlit
+pandas
+numpy
 pdfplumber
 sentence-transformers
 scikit-learn
 openpyxl
-pandas
-numpy
 matplotlib
