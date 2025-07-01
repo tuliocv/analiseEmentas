@@ -18,6 +18,7 @@ import os
 from io import BytesIO
 from sentence_transformers import SentenceTransformer, util
 from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
 
 st.set_page_config(layout="wide")
 st.title("📂📑 Análise de Ementas de Psicologia via ZIP")
