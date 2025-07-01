@@ -5,3 +5,4 @@ scikit-learn
 openpyxl
 pandas
 numpy
+matplotlib
