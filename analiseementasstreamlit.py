@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""analiseEmentasStreamlit.ipynb
-
-"""
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -16,7 +12,7 @@ from sentence_transformers import SentenceTransformer, util
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 
-
+# Configuração da página
 st.set_page_config(layout="wide")
 st.title("📂📑 Análise de Ementas de Psicologia via ZIP")
 
@@ -44,6 +40,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
                     for p in pdf.pages:
                         texto += (p.extract_text() or "") + "\n"
 
+                # extrai nome e código
                 m = re.search(
                     r"UNIDADE CURRICULAR[:\s]*(.+?)\s*\(\s*(\d+)\s*\)",
                     texto, re.IGNORECASE | re.DOTALL
@@ -51,17 +48,18 @@ with tempfile.TemporaryDirectory() as tmpdir:
                 nome = m.group(1).strip() if m else fn
                 cod  = m.group(2).strip() if m else fn
 
+                # extrai conteúdo programático
                 m2 = re.search(
                     r"Conte[úu]do program[aá]tico\s*[:\-–]?\s*(.*?)\s*(?:\n\s*Bibliografia|\Z)",
                     texto, re.IGNORECASE | re.DOTALL
                 )
                 conteudo = m2.group(1).strip() if m2 else ""
+
                 registros.append({
                     "COD_EMENTA": cod,
                     "NOME UC": nome,
                     "CONTEUDO_PROGRAMATICO": conteudo
                 })
-
     df_ementas = pd.DataFrame(registros)
 
 st.success(f"{len(df_ementas)} ementas carregadas.")
@@ -78,8 +76,7 @@ if not uploaded_enade:
     st.stop()
 
 enade = pd.read_excel(uploaded_enade).dropna(subset=['DESCRIÇÃO'])
-
-# Explode frases ENADE
+# explode frases ENADE
 enade['FRASE_ENADE'] = (
     enade['DESCRIÇÃO']
     .str.replace('\n',' ')
@@ -103,84 +100,141 @@ analise = st.sidebar.selectbox("Escolha a Análise", [
 @st.cache_resource
 def load_model():
     return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-
 model = load_model()
 
 # --- 6A) t-SNE das UCs ---
 if analise == "t-SNE das UCs":
-    # ... (mesmo código anterior para t-SNE) ...
-    pass
+    st.header("t-SNE das UCs")
+    df_group = (
+        df_ementas
+        .groupby(['COD_EMENTA','NOME UC'])['CONTEUDO_PROGRAMATICO']
+        .apply(lambda texts: " ".join(texts))
+        .reset_index()
+    )
+    texts = df_group['CONTEUDO_PROGRAMATICO'].tolist()
+    emb   = model.encode(texts, convert_to_tensor=False)
+    n     = len(emb)
+    perp  = st.slider("Perplexity", 2, max(2, n//3), value=min(30, max(2, n//3)))
+    coords = TSNE(n_components=2, random_state=42, perplexity=perp).fit_transform(emb)
+    df_group['X'], df_group['Y'] = coords[:,0], coords[:,1]
+
+    fig, ax = plt.subplots(figsize=(8,6))
+    for label, grp in df_group.groupby('NOME UC'):
+        ax.scatter(grp['X'], grp['Y'], label=label, s=40, alpha=0.7)
+    ax.set_xlabel("t-SNE 1")
+    ax.set_ylabel("t-SNE 2")
+    ax.legend(bbox_to_anchor=(1,1))
+    st.pyplot(fig)
 
 # --- 6B) Matriz de Similaridade ---
 elif analise == "Matriz de Similaridade ENADE × Ementas":
-    # ... (mesmo código anterior para similaridade) ...
-    pass
+    st.header("Similaridade ENADE × Ementas")
+    # explode ementas em frases
+    ementa_expl = (
+        df_ementas
+        .assign(
+            FRASE=lambda df: df['CONTEUDO_PROGRAMATICO']
+                .str.replace('\n',' ')
+                .str.split(r'[.;]')
+        )
+        .explode('FRASE')
+        .assign(FRASE=lambda df: df['FRASE'].str.strip())
+    )
+    ementa_expl = ementa_expl[ementa_expl['FRASE'].str.len()>5]
+
+    with st.spinner("Gerando embeddings…"):
+        emb_e = model.encode(ementa_expl['FRASE'].tolist(), convert_to_tensor=True)
+        emb_n = model.encode(enade_expl['FRASE_ENADE'].tolist(), convert_to_tensor=True)
+
+    sim = util.cos_sim(emb_n, emb_e).cpu().numpy()
+    rec = []
+    idxs = ementa_expl.groupby('COD_EMENTA').indices
+    for cod, sidx in idxs.items():
+        for i,row in enade_expl.iterrows():
+            rec.append({
+                "COD_EMENTA": cod,
+                "FRASE_ENADE": row['FRASE_ENADE'],
+                "MAX_SIM": float(sim[i, sidx].max())
+            })
+    df_sim = (
+        pd.DataFrame(rec)
+        .pivot(index='COD_EMENTA', columns='FRASE_ENADE', values='MAX_SIM')
+        .fillna(0)
+    )
+    st.dataframe(df_sim.style.background_gradient(cmap="RdYlGn_r"))
+    buf = BytesIO()
+    df_sim.to_excel(buf, index=True)
+    buf.seek(0)
+    st.download_button("⬇️ Baixar Similaridade", buf, "sim_enade_ementa.xlsx")
 
 # --- 6C) Matriz de Redundância ---
 elif analise == "Matriz de Redundância":
-    # ... (mesmo código anterior para redundância) ...
-    pass
+    st.header("Matriz de Redundância")
+    df_group = (
+        df_ementas
+        .groupby('COD_EMENTA')['CONTEUDO_PROGRAMATICO']
+        .apply(lambda txts: " ".join(txts))
+        .reset_index()
+    )
+    emb = model.encode(df_group['CONTEUDO_PROGRAMATICO'].tolist(), convert_to_tensor=True)
+    sim = util.cos_sim(emb, emb).cpu().numpy()
+    df_red = pd.DataFrame(sim, index=df_group['COD_EMENTA'], columns=df_group['COD_EMENTA'])
+    st.dataframe(df_red.style.background_gradient(cmap="RdYlGn_r"))
+    buf = BytesIO()
+    df_red.to_excel(buf, index=True)
+    buf.seek(0)
+    st.download_button("⬇️ Baixar Redundância", buf, "redundancia_uc.xlsx")
 
-# --- 6D) Nova: Análise Ementa Expandida vs ENADE ---
+# --- 6D) Análise Ementa Expandida vs ENADE ---
 else:
     st.header("🔄 Análise Ementa Expandida vs ENADE")
 
-    # 6D.1) Explode Ementa Contextualizada em frases
-    df_ementa_ctx = df_ementas.rename(
+    # explode contextualizado em frases
+    df_ctx = df_ementas.rename(
         columns={"CONTEUDO_PROGRAMATICO": "CONTEUDO_PROGRAMATICO_CONTEXTUALIZADO"}
     )
-    df_ementa_ctx['FRASE'] = (
-        df_ementa_ctx['CONTEUDO_PROGRAMATICO_CONTEXTUALIZADO']
-        .str.replace('\n', ' ')
+    df_ctx['FRASE'] = (
+        df_ctx['CONTEUDO_PROGRAMATICO_CONTEXTUALIZADO']
+        .str.replace('\n',' ')
         .str.split(r'[.;]')
     )
-    df_ementa_ctx = (
-        df_ementa_ctx
+    df_ctx = (
+        df_ctx
         .explode('FRASE')
         .assign(FRASE=lambda d: d['FRASE'].str.strip())
     )
-    df_ementa_ctx = df_ementa_ctx[df_ementa_ctx['FRASE'].str.len() > 5].reset_index(drop=True)
+    df_ctx = df_ctx[df_ctx['FRASE'].str.len()>5].reset_index(drop=True)
 
-    # 6D.2) Codifica e gera embeddings
-    with st.spinner("🔮 Gerando embeddings para frases..."):
-        emb_frases = model.encode(df_ementa_ctx['FRASE'].tolist(), convert_to_tensor=True)
-        emb_enade  = model.encode(enade_expl['FRASE_ENADE'].tolist(),   convert_to_tensor=True)
+    limiar = st.slider("Limiar de similaridade", 0.0, 1.0, 0.6, step=0.05)
 
-    # 6D.3) Monta limiar
-    limiar = st.sidebar.slider("Limiar de similaridade", 0.0, 1.0, 0.6, step=0.05)
+    with st.spinner("Calculando embeddings..."):
+        emb_f = model.encode(df_ctx['FRASE'].tolist(), convert_to_tensor=True)
+        emb_n = model.encode(enade_expl['FRASE_ENADE'].tolist(), convert_to_tensor=True)
+    simm = util.cos_sim(emb_n, emb_f).cpu().numpy()
 
-    # 6D.4) Calcula matriz de similaridade
-    sim_matrix = util.cos_sim(emb_enade, emb_frases).cpu().numpy()
-
-    # 6D.5) Constrói registros
     records = []
-    for idx_enade, row_enade in enade_expl.iterrows():
-        sims    = sim_matrix[idx_enade]
+    for i,row in enade_expl.iterrows():
+        sims    = simm[i]
         max_sim = float(sims.max())
         idx_max = int(sims.argmax())
-        cod_max = df_ementa_ctx.loc[idx_max, 'COD_EMENTA']
-        texto_max = df_ementa_ctx.loc[idx_max, 'CONTEUDO_PROGRAMATICO_CONTEXTUALIZADO']
-        cods_acima = df_ementa_ctx.loc[sims >= limiar, 'COD_EMENTA'].unique().tolist()
+        cod_max = df_ctx.loc[idx_max,'COD_EMENTA']
+        text_max= df_ctx.loc[idx_max,'CONTEUDO_PROGRAMATICO_CONTEXTUALIZADO']
+        above  = df_ctx.loc[sims>=limiar,'COD_EMENTA'].unique().tolist()
 
         records.append({
-            'FRASE_ENADE':        row_enade['FRASE_ENADE'],
-            'DIMENSÃO':           row_enade['DIMENSÃO'],
-            'MAX_SIMILARIDADE':   round(max_sim, 3),
-            'COD_EMENTA_MAX':     cod_max,
-            'CONTEUDO_ORIGEM':    texto_max,
-            f'UCs_>={int(limiar*100)}%': "; ".join(map(str, cods_acima))
+            "FRASE_ENADE":     row['FRASE_ENADE'],
+            "DIMENSÃO":        row['DIMENSÃO'],
+            "MAX_SIM":         round(max_sim,3),
+            "COD_MAX":         cod_max,
+            "TEXTO_MAX":       text_max,
+            f"UCs_>={int(limiar*100)}%": ";".join(map(str,above))
         })
 
-    df_result = pd.DataFrame(records)
+    df_res = pd.DataFrame(records)
+    st.dataframe(df_res)
+    buf = BytesIO()
+    df_res.to_excel(buf, index=False)
+    buf.seek(0)
+    st.download_button("📥 Baixar Análise Expandida vs ENADE", buf,
+                       "analise_expandida_enade.xlsx")
 
-    # 6D.6) Exibe e oferece download
-    st.dataframe(df_result)
-    towrite = BytesIO()
-    df_result.to_excel(towrite, index=False, sheet_name="analise")
-    towrite.seek(0)
-    st.download_button(
-        "📥 Baixar Análise Expandida vs ENADE",
-        data=towrite,
-        file_name="analise_ementa_expandida_vs_enade.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
