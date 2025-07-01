@@ -114,7 +114,7 @@ if analise == "t-SNE das UCs":
     tsne = TSNE(n_components=2, random_state=42, perplexity=perp)
     coords = tsne.fit_transform(emb)
     df_group['X'], df_group['Y'] = coords[:,0], coords[:,1]
-    fig, ax = st.pyplot() if False else plt.subplots(figsize=(8,6))
+    fig, ax = plt.subplots(figsize=(8,6))
     labels = df_group['NOME UC'].unique()
     cmap = plt.cm.get_cmap('tab20', len(labels))
     for i,l in enumerate(labels):
