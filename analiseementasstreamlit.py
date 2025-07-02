@@ -161,7 +161,7 @@ elif analise == "Matriz de Similaridade ENADE × Ementas":
         .pivot(index='COD_EMENTA', columns='FRASE_ENADE', values='MAX_SIM')
         .fillna(0)
     )
-    st.dataframe(df_sim.style.background_gradient(cmap="RdYlGn_r"))
+    st.dataframe(df_sim.style.background_gradient(cmap="RdYlGn"))
     buf = BytesIO()
     df_sim.to_excel(buf, index=True)
     buf.seek(0)
