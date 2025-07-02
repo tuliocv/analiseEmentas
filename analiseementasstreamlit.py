@@ -134,6 +134,17 @@ if analise == "t-SNE das UCs":
     ax.set_ylabel("t-SNE 2")
     st.pyplot(fig)
 
+ # --- Botão de download da imagem ---
+    buf_img = BytesIO()
+    fig.savefig(buf_img, format="png", dpi=300, bbox_inches="tight")
+    buf_img.seek(0)
+    st.download_button(
+        label="📥 Baixar Gráfico",
+        data=buf_img,
+        file_name="tsne_ucs.png",
+        mime="image/png"
+    )
+
 
 # --- 6B) Matriz de Similaridade ---
 elif analise == "Matriz de Similaridade":
