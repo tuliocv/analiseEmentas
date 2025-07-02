@@ -371,7 +371,7 @@ elif analise == "Matriz de Redundância":
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# --- 6D) Análise Ementa vs ENADE (ajustado com gráfico de frequências) ---
+# --- 6D) Análise Ementa vs ENADE com gráfico de frequência de todas as ementas acima do limiar ---
 else:
     st.header("Análise Ementa vs ENADE")
 
@@ -396,10 +396,10 @@ else:
         emb_n = model.encode(enade_expl['FRASE_ENADE'].tolist(), convert_to_tensor=True)
     simm = util.cos_sim(emb_n, emb_f).cpu().numpy()
 
-    # 6D.3) Construção dos resultados
+    # 6D.3) Construção dos resultados por frase ENADE
     records = []
     for i, row_enade in enade_expl.iterrows():
-        sims    = simm[i]                
+        sims    = simm[i]
         max_sim = float(sims.max())
         idx_max = int(sims.argmax())
         cod_max = df_ctx.loc[idx_max, 'COD_EMENTA']
@@ -414,19 +414,38 @@ else:
             f"UCs_>={int(limiar*100)}%": "; ".join(map(str, acima))
         })
 
-    # 6D.4) DataFrame de resultados e tabela
+    # 6D.4) Exibe tabela de resultados
     df_res = pd.DataFrame(records)
     st.subheader("Resultados por frase ENADE")
     st.dataframe(df_res)
 
-    # 6D.5) Gráfico de frequência de COD_EMENTA_MAX
-    st.subheader("Frequência de ementas mais similares")
-    freq = df_res['COD_EMENTA_MAX'].value_counts().sort_index()
+    # 6D.5) Frequência de todas as ementas com similaridade ≥ limiar
+    st.subheader("Frequência de ementas com similaridade ≥ limiar")
+    # Agrega todas as ocorrências acima do limiar
+    lista_acima = []
+    for sims in simm:
+        lista_acima.extend(df_ctx.loc[sims >= limiar, 'COD_EMENTA'].tolist())
+    freq = pd.Series(lista_acima).value_counts().sort_index()
+
+    
+    # 6D.6) Download da planilha de resultados
+    buf = BytesIO()
+    df_res.to_excel(buf, index=False, sheet_name="Analise_ENADE")
+    buf.seek(0)
+    st.download_button(
+        "Baixar Análise Expandida vs ENADE",
+        data=buf,
+        file_name="analise_ementa_vs_enade.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    
+
+    # Plota o gráfico de barras
     fig, ax = plt.subplots(figsize=(8,4))
     ax.bar(freq.index.astype(str), freq.values, color='skyblue')
     ax.set_xlabel("COD_EMENTA")
-    ax.set_ylabel("Quantidade de correspondências ≥ limiar")
-    ax.set_title("Número de vezes que cada ementa foi a mais similar")
+    ax.set_ylabel("Número de ocorrências ≥ limiar")
+    ax.set_title("Frequência de ementas em todas as comparações")
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     st.pyplot(fig)
@@ -440,15 +459,4 @@ else:
         data=buf_fig,
         file_name="frequencia_ementas.png",
         mime="image/png"
-    )
-
-    # 6D.6) Download da planilha de resultados
-    buf = BytesIO()
-    df_res.to_excel(buf, index=False, sheet_name="Analise_ENADE")
-    buf.seek(0)
-    st.download_button(
-        "📥 Baixar Análise Expandida vs ENADE",
-        data=buf,
-        file_name="analise_ementa_vs_enade.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
