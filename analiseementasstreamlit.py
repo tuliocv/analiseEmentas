@@ -139,18 +139,14 @@ if analise == "Clusterização Ementas":
     kmeans = KMeans(n_clusters=k, random_state=42)
     df_group['cluster'] = kmeans.fit_predict(emb)
 
-    # 5) Gera nomes temáticos para cada cluster
-    #    consolida texto
+    # 5) Gera nomes temáticos para cada cluster (sem stop_words)
     cluster_texts = (
         df_group
         .groupby('cluster')['CONTEUDO_PROGRAMATICO']
         .apply(lambda docs: " ".join(docs))
         .tolist()
     )
-    # usa stopwords do nltk
-    stop_pt = set(stopwords.words('portuguese'))
     vectorizer = CountVectorizer(
-        stop_words=stop_pt, 
         max_features=50, 
         ngram_range=(1,2)
     )
