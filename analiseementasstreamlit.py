@@ -85,7 +85,7 @@ if usar_gpt:
     api_key = st.text_input("Insira sua OpenAI API Key:", type="password")
     if api_key:
         # Usa a nova interface do SDK v1
-        from openai import OpenAI
+        
         client = OpenAI(api_key=api_key)
 
         @st.cache_data
