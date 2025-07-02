@@ -48,10 +48,10 @@ with tempfile.TemporaryDirectory() as tmpdir:
                 for p in pdf.pages:
                     texto += (p.extract_text() or "") + "\n"
 
-            # --- Limpeza: remove linhas de paginação tipo "2 de 3", "10 de 12" etc. ---
+            # Limpeza de paginação
             texto = re.sub(r"(?m)^\s*\d+\s+de\s+\d+\s*$", "", texto)
 
-            # extrai nome e código
+            # Extrai nome e código
             m = re.search(
                 r"UNIDADE CURRICULAR[:\s]*(.+?)\s*\(\s*(\d+)\s*\)",
                 texto, re.IGNORECASE | re.DOTALL
@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
             nome = m.group(1).strip() if m else fn
             cod  = m.group(2).strip() if m else fn
 
-            # extrai conteúdo programático
+            # Extrai conteúdo programático
             m2 = re.search(
                 r"Conte[úu]do program[aá]tico\s*[:\-–]?\s*(.*?)(?=\n\s*Bibliografia|\Z)",
                 texto, re.IGNORECASE | re.DOTALL
@@ -78,15 +78,14 @@ with tempfile.TemporaryDirectory() as tmpdir:
 st.success(f"{len(df_ementas)} ementas carregadas.")
 
 usar_gpt = st.checkbox(
-    "Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases? Utilizaremos o GPT3.5-Turbo."
+    "🔄 Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases?"
 )
 
 if usar_gpt:
     api_key = st.text_input("Insira sua OpenAI API Key:", type="password")
     if api_key:
-        # Usa a nova interface do SDK v1
-        
-        client = OpenAI(api_key=api_key)
+        import openai
+        openai.api_key = api_key
 
         @st.cache_data
         def corrigir_pontuacao(texto: str) -> str:
@@ -96,7 +95,7 @@ if usar_gpt:
                 "mantendo o sentido original.\n\n"
                 f"Texto:\n{texto}"
             )
-            resp = client.chat.completions.create(
+            resp = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "Você é um especialista em revisão de texto."},
