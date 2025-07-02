@@ -352,9 +352,9 @@ elif analise == "Matriz de Redundância":
 
     # 4) Cria regra: vermelho em valor mínimo → amarelo em 50% → verde em valor máximo
     rule = ColorScaleRule(
-        start_type='min', start_color='FF0000',
-        mid_type='percentile', mid_value=50, mid_color='FFFF00',
-        end_type='max', end_color='00FF00'
+        start_type='min',      start_color='00FF00',  # verde
+        mid_type='percentile', mid_value=50,          mid_color='FFFF00',  # amarelo
+        end_type='max',        end_color='FF0000'      # vermelho
     )
     ws.conditional_formatting.add(range_str, rule)
 
@@ -365,7 +365,7 @@ elif analise == "Matriz de Redundância":
 
     # 6) Botão de download com o arquivo já colorido
     st.download_button(
-        "⬇️ Baixar Matriz de Redundância (colorida)",
+        "⬇️ Baixar Matriz de Redundância",
         data=buf2,
         file_name="redundancia_uc_colorida.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
