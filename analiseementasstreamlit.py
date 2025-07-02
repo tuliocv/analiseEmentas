@@ -330,18 +330,16 @@ elif analise == "Matriz de Redundância":
     buf.seek(0)
     st.download_button("⬇️ Baixar Matriz de Redundância", buf, "redundancia_uc.xlsx")
 
-# --- 6D) Análise Ementa Expandida vs ENADE ---
+# --- 6D) Análise Ementa vs ENADE (ajustado para usar a FRASE correta) ---
 else:
     st.header("Análise Ementa vs ENADE")
 
-    # explode contextualizado em frases
-    df_ctx = df_ementas.rename(
-        columns={"CONTEUDO_PROGRAMATICO": "CONTEUDO_PROGRAMATICO"}
-    )
+    # 6D.1) Explode contextualizado em frases
+    df_ctx = df_ementas.rename(columns={"CONTEUDO_PROGRAMATICO":"CONTEUDO_PROGRAMATICO"})
     df_ctx['FRASE'] = (
         df_ctx['CONTEUDO_PROGRAMATICO']
-        .str.replace('\n',' ')
-        .str.split(r'[.;]')
+          .str.replace('\n',' ')
+          .str.split(r'\.')
     )
     df_ctx = (
         df_ctx
@@ -350,36 +348,43 @@ else:
     )
     df_ctx = df_ctx[df_ctx['FRASE'].str.len()>5].reset_index(drop=True)
 
+    # 6D.2) Embeddings
     limiar = st.slider("Limiar de similaridade", 0.0, 1.0, 0.6, step=0.05)
-
     with st.spinner("Calculando embeddings..."):
         emb_f = model.encode(df_ctx['FRASE'].tolist(), convert_to_tensor=True)
         emb_n = model.encode(enade_expl['FRASE_ENADE'].tolist(), convert_to_tensor=True)
     simm = util.cos_sim(emb_n, emb_f).cpu().numpy()
 
+    # 6D.3) Construção dos resultados
     records = []
-    for i,row in enade_expl.iterrows():
-        sims    = simm[i]
+    for i, row_enade in enade_expl.iterrows():
+        sims    = simm[i]                # similaridades contra todas as FRASEs
         max_sim = float(sims.max())
         idx_max = int(sims.argmax())
-        cod_max = df_ctx.loc[idx_max,'COD_EMENTA']
-        text_max= df_ctx.loc[idx_max,'CONTEUDO_PROGRAMATICO']
-        above  = df_ctx.loc[sims>=limiar,'COD_EMENTA'].unique().tolist()
+        cod_max = df_ctx.loc[idx_max, 'COD_EMENTA']
+        # **Aqui pegamos a FRASE, não o bloco inteiro!**
+        texto_max = df_ctx.loc[idx_max, 'FRASE']
+        acima     = df_ctx.loc[sims >= limiar, 'COD_EMENTA'].unique().tolist()
 
         records.append({
-            "FRASE_ENADE":     row['FRASE_ENADE'],
-            "DIMENSÃO":        row['DIMENSAO'],
-            "MAX_SIM":         round(max_sim,3),
-            "COD_MAX":         cod_max,
-            "TEXTO_MAX":       text_max,
-            f"UCs_>={int(limiar*100)}%": ";".join(map(str,above))
+            "FRASE_ENADE":     row_enade['FRASE_ENADE'],
+            "DIMENSÃO":        row_enade['DIMENSÃO'],
+            "MAX_SIM":         round(max_sim, 3),
+            "COD_EMENTA_MAX":  cod_max,
+            "TEXTO_MAX":       texto_max,
+            f"UCs_>={int(limiar*100)}%": "; ".join(map(str, acima))
         })
 
+    # 6D.4) Exibe e oferece download
     df_res = pd.DataFrame(records)
     st.dataframe(df_res)
     buf = BytesIO()
     df_res.to_excel(buf, index=False)
     buf.seek(0)
-    st.download_button("📥 Baixar Análise Expandida vs ENADE", buf,
-                       "analise_expandida_enade.xlsx")
+    st.download_button(
+        "📥 Baixar Análise Expandida vs ENADE",
+        data=buf,
+        file_name="analise_ementa_expandida_vs_enade.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
