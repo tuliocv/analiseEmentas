@@ -16,6 +16,8 @@ from openpyxl.formatting.rule import ColorScaleRule
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import CountVectorizer
 from nltk.corpus import stopwords
+import openai
+
 
 # Configuração da página
 st.set_page_config(layout="wide")
@@ -107,12 +109,6 @@ def load_model():
     return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 model = load_model()
 
-
-
-from sklearn.cluster import KMeans
-from io import BytesIO
-import numpy as np
-import openai
 
 # --- 6A) Clusterização Ementas via KMeans + t-SNE c/ opção de IA ---
 if analise == "Clusterização Ementas":
