@@ -130,8 +130,9 @@ if analise == "Clusterização Ementas":
             str(row['COD_EMENTA']),
             fontsize=8
         )
-    ax.set_xlabel("t-SNE 1")
-    ax.set_ylabel("t-SNE 2")
+    ax.set_xlabel("Dimensão 1 (t-SNE 1)")
+    ax.set_ylabel("Dimensão 2 (t-SNE 2)")
+    ax.set_title("Mapa t-SNE das Ementas por COD_EMENTA", fontsize=14)
     st.pyplot(fig)
 
  # --- Botão de download da imagem ---
