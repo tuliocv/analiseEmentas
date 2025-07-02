@@ -191,10 +191,10 @@ else:
 
     # explode contextualizado em frases
     df_ctx = df_ementas.rename(
-        columns={"CONTEUDO_PROGRAMATICO": "CONTEUDO_PROGRAMATICO_CONTEXTUALIZADO"}
+        columns={"CONTEUDO_PROGRAMATICO": "CONTEUDO_PROGRAMATICO"}
     )
     df_ctx['FRASE'] = (
-        df_ctx['CONTEUDO_PROGRAMATICO_CONTEXTUALIZADO']
+        df_ctx['CONTEUDO_PROGRAMATICO']
         .str.replace('\n',' ')
         .str.split(r'[.;]')
     )
@@ -218,12 +218,12 @@ else:
         max_sim = float(sims.max())
         idx_max = int(sims.argmax())
         cod_max = df_ctx.loc[idx_max,'COD_EMENTA']
-        text_max= df_ctx.loc[idx_max,'CONTEUDO_PROGRAMATICO_CONTEXTUALIZADO']
+        text_max= df_ctx.loc[idx_max,'CONTEUDO_PROGRAMATICO']
         above  = df_ctx.loc[sims>=limiar,'COD_EMENTA'].unique().tolist()
 
         records.append({
             "FRASE_ENADE":     row['FRASE_ENADE'],
-            "DIMENSÃO":        row['DIMENSÃO'],
+            "DIMENSÃO":        row['DIMENSAO'],
             "MAX_SIM":         round(max_sim,3),
             "COD_MAX":         cod_max,
             "TEXTO_MAX":       text_max,
