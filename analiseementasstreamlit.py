@@ -49,7 +49,6 @@ with tempfile.TemporaryDirectory() as tmpdir:
                     texto += (p.extract_text() or "") + "\n"
 
             # --- Limpeza: remove linhas de paginação tipo "2 de 3", "10 de 12" etc. ---
-            # o flag (?m) faz com que ^ e $ considerem início/fim de cada linha
             texto = re.sub(r"(?m)^\s*\d+\s+de\s+\d+\s*$", "", texto)
 
             # extrai nome e código
@@ -75,7 +74,50 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
     df_ementas = pd.DataFrame(registros)
 
+# --- Pergunta ao usuário sobre correção de pontuação ---
 st.success(f"{len(df_ementas)} ementas carregadas.")
+
+usar_gpt = st.checkbox(
+    "🔄 Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases?"
+)
+
+if usar_gpt:
+    api_key = st.text_input("Insira sua OpenAI API Key:", type="password")
+    if api_key:
+        import openai
+        openai.api_key = api_key
+
+        @st.cache_data
+        def corrigir_pontuacao(texto: str) -> str:
+            prompt = (
+                "Revise o texto abaixo para melhorar a pontuação: "
+                "adicione ou ajuste pontos finais, vírgulas e demais sinais, "
+                "mantendo o sentido original.\n\n"
+                f"Texto:\n{texto}"
+            )
+            resp = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Você é um especialista em revisão de texto."},
+                    {"role": "user",   "content": prompt}
+                ],
+                temperature=0.0,
+                max_tokens=len(texto.split()) // 2
+            )
+            return resp.choices[0].message.content.strip()
+
+        with st.spinner("Corrigindo pontuação via GPT…"):
+            df_ementas['CONTEUDO_PROGRAMATICO'] = (
+                df_ementas['CONTEUDO_PROGRAMATICO']
+                .apply(corrigir_pontuacao)
+            )
+        st.success("Pontuação corrigida em todas as ementas.")
+    else:
+        st.info("Para usar a correção via GPT, insira sua OpenAI API Key acima.")
+else:
+    st.info("Seguindo com a separação padrão de frases sem correção de pontuação.")
+
+# --- Continuação do fluxo normal ---
 st.subheader("Preview das primeiras ementas")
 st.dataframe(df_ementas.head(5))
 
