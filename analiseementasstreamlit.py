@@ -105,8 +105,8 @@ def load_model():
 model = load_model()
 
 # --- 6A) t-SNE das UCs ---
-if analise == "t-SNE das UCs":
-    st.header("t-SNE das UCs")
+if analise == "Clusterização Ementas":
+    st.header("Clusterização Ementas")
     df_group = (
         df_ementas
         .groupby(['COD_EMENTA','NOME UC'])['CONTEUDO_PROGRAMATICO']
@@ -148,7 +148,7 @@ if analise == "t-SNE das UCs":
 
 # --- 6B) Matriz de Similaridade ---
 elif analise == "Matriz de Similaridade":
-    st.header("Similaridade ENADE × Ementas")
+    st.header("Matriz de Similaridade")
     # explode ementas em frases
     ementa_expl = (
         df_ementas
@@ -241,7 +241,7 @@ elif analise == "Matriz de Redundância":
 
 # --- 6D) Análise Ementa Expandida vs ENADE ---
 else:
-    st.header("🔄 Análise Ementa vs ENADE")
+    st.header("Análise Ementa vs ENADE")
 
     # explode contextualizado em frases
     df_ctx = df_ementas.rename(
