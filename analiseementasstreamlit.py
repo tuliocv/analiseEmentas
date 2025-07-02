@@ -118,7 +118,7 @@ model = load_model()
 
 # --- 6A) Clusterização Ementas via KMeans + t-SNE c/ nomes automáticos GPT v1.0+ ---
 if analise == "Clusterização Ementas":
-    st.header("Clusterização das UCs via KMeans + t-SNE")
+    st.header("Clusterização das UCs")
 
     # 1) Agrega cada UC em um único texto
     df_group = (
