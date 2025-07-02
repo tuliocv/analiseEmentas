@@ -121,12 +121,19 @@ if analise == "t-SNE das UCs":
     df_group['X'], df_group['Y'] = coords[:,0], coords[:,1]
 
     fig, ax = plt.subplots(figsize=(8,6))
-    for label, grp in df_group.groupby('NOME UC'):
-        ax.scatter(grp['X'], grp['Y'], label=label, s=40, alpha=0.7)
+    ax.scatter(df_group['X'], df_group['Y'], s=40, alpha=0.7)
+    # Anota cada ponto com o COD_EMENTA
+    for _, row in df_group.iterrows():
+        ax.text(
+            row['X'] + 0.5,  # pequeno deslocamento para não sobrepor
+            row['Y'] + 0.5,
+            str(row['COD_EMENTA']),
+            fontsize=8
+        )
     ax.set_xlabel("t-SNE 1")
     ax.set_ylabel("t-SNE 2")
-    ax.legend(bbox_to_anchor=(1,1))
     st.pyplot(fig)
+
 
 # --- 6B) Matriz de Similaridade ---
 elif analise == "Matriz de Similaridade":
