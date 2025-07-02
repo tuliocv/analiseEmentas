@@ -91,15 +91,18 @@ if usar_gpt:
         @st.cache_data
         def corrigir_pontuacao(texto: str) -> str:
             prompt = (
-                "Corrija a pontuação do seguinte texto, mantendo o contexto:\n\n"
-                "Não invente conteúdo. Apenas a correção. A saída deverá ser somente o texto corrigido."
-                f"Texto:\n{texto}"
+                "Você é um especialista em correção de textos acadêmicos. "
+                "Receba o texto abaixo e **adicione um ponto-final ao fim de cada frase**, "
+                "sem alterar palavras, estrutura ou significado. "
+                "Mantenha todo o texto em um único parágrafo, apenas garantindo que "
+                "cada sentença termine com “.”\n\n"
+                f"TEXTO ORIGINAL:\n{texto}"
             )
             # Nova API v1
             resp = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "Você é um especialista que corrige a pontuação e o contexto de textos acadêmicos presente no conteúdo programático das ementas das Unidades Curriculares."},
+                    {"role": "system", "content": "Corrija APENAS a pontuação no final das frases."},
                     {"role": "user",   "content": prompt}
                 ],
                 temperature=0.0,
