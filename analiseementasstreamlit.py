@@ -368,7 +368,7 @@ else:
 
         records.append({
             "FRASE_ENADE":     row_enade['FRASE_ENADE'],
-            "DIMENSÃO":        row_enade['DIMENSÃO'],
+            "DIMENSÃO":        row_enade['DIMENSAO'],
             "MAX_SIM":         round(max_sim, 3),
             "COD_EMENTA_MAX":  cod_max,
             "TEXTO_MAX":       texto_max,
