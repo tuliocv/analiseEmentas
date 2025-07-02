@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#v5 -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -15,9 +15,9 @@ from openpyxl import load_workbook
 from openpyxl.formatting.rule import ColorScaleRule
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import CountVectorizer
+from nltk.corpus import stopwords
 import openai
 
-#st.write(f"🔍 Versão do openai instalada: {openai.__version__}")
 
 # Configuração da página
 st.set_page_config(layout="wide")
@@ -48,10 +48,11 @@ with tempfile.TemporaryDirectory() as tmpdir:
                 for p in pdf.pages:
                     texto += (p.extract_text() or "") + "\n"
 
-            # Limpeza de paginação
+            # --- Limpeza: remove linhas de paginação tipo "2 de 3", "10 de 12" etc. ---
+            # o flag (?m) faz com que ^ e $ considerem início/fim de cada linha
             texto = re.sub(r"(?m)^\s*\d+\s+de\s+\d+\s*$", "", texto)
 
-            # Extrai nome e código
+            # extrai nome e código
             m = re.search(
                 r"UNIDADE CURRICULAR[:\s]*(.+?)\s*\(\s*(\d+)\s*\)",
                 texto, re.IGNORECASE | re.DOTALL
@@ -59,7 +60,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
             nome = m.group(1).strip() if m else fn
             cod  = m.group(2).strip() if m else fn
 
-            # Extrai conteúdo programático
+            # extrai conteúdo programático
             m2 = re.search(
                 r"Conte[úu]do program[aá]tico\s*[:\-–]?\s*(.*?)(?=\n\s*Bibliografia|\Z)",
                 texto, re.IGNORECASE | re.DOTALL
@@ -74,71 +75,9 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
     df_ementas = pd.DataFrame(registros)
 
-# --- Após criar df_ementas ---
 st.success(f"{len(df_ementas)} ementas carregadas.")
-
-usar_gpt = st.checkbox(
-    "🔄 Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases?"
-)
-
-if usar_gpt:
-    api_key = st.text_input("Insira sua OpenAI API Key:", type="password")
-    if api_key:
-        import openai
-        openai.api_key = api_key
-
-        @st.cache_data
-        def corrigir_pontuacao(texto: str) -> str:
-            prompt = (
-                "Você é um especialista em correção de textos acadêmicos. "
-                "Receba o texto abaixo e **adicione um ponto-final ao fim de cada frase**, "
-                "sem alterar palavras, estrutura ou significado. "
-                "Mantenha todo o texto em um único parágrafo.\n\n"
-                f"TEXTO ORIGINAL:\n{texto}"
-            )
-            resp = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Corrija APENAS a pontuação no final das frases."},
-                    {"role": "user",   "content": prompt}
-                ],
-                temperature=0.0,
-                max_tokens=len(texto.split())
-            )
-            return resp.choices[0].message.content.strip()
-
-        with st.spinner("Corrigindo pontuação via GPT…"):
-            df_ementas['CONTEUDO_PROGRAMATICO'] = (
-                df_ementas['CONTEUDO_PROGRAMATICO']
-                .apply(corrigir_pontuacao)
-            )
-        st.success("Pontuação corrigida em todas as ementas.")
-
-        # Visualização completa em caixas de texto roláveis
-        st.subheader("Texto completo das primeiras ementas corrigidas")
-        for idx, row in df_ementas.head(5).iterrows():
-            st.markdown(f"**{row['COD_EMENTA']} — {row['NOME UC']}**")
-            st.text_area(
-                label=f"Ementa {row['COD_EMENTA']}",
-                value=row['CONTEUDO_PROGRAMATICO'],
-                height=150
-            )
-
-        # Botão para baixar todas as ementas em Excel
-        buf = BytesIO()
-        df_ementas.to_excel(buf, index=False, sheet_name="Ementas")
-        buf.seek(0)
-        st.download_button(
-            label="⬇️ Baixar todas as ementas (Excel)",
-            data=buf,
-            file_name="ementas_completas.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    else:
-        st.info("Para usar a correção via GPT, insira sua OpenAI API Key acima.")
-else:
-    st.info("Seguindo sem correção de pontuação via GPT.")
+st.subheader("Preview das primeiras ementas")
+st.dataframe(df_ementas.head(5))
 
 # --- 3) Upload do Excel ENADE ---
 uploaded_enade = st.file_uploader(
@@ -413,9 +352,9 @@ elif analise == "Matriz de Redundância":
 
     # 4) Cria regra: vermelho em valor mínimo → amarelo em 50% → verde em valor máximo
     rule = ColorScaleRule(
-        start_type='min',      start_color='00FF00',  # verde
-        mid_type='percentile', mid_value=50,          mid_color='FFFF00',  # amarelo
-        end_type='max',        end_color='FF0000'      # vermelho
+        start_type='min', start_color='FF0000',
+        mid_type='percentile', mid_value=50, mid_color='FFFF00',
+        end_type='max', end_color='00FF00'
     )
     ws.conditional_formatting.add(range_str, rule)
 
@@ -426,7 +365,7 @@ elif analise == "Matriz de Redundância":
 
     # 6) Botão de download com o arquivo já colorido
     st.download_button(
-        "⬇️ Baixar Matriz de Redundância",
+        "⬇️ Baixar Matriz de Redundância (colorida)",
         data=buf2,
         file_name="redundancia_uc_colorida.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
