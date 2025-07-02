@@ -324,11 +324,52 @@ elif analise == "Matriz de Redundância":
     emb = model.encode(df_group['CONTEUDO_PROGRAMATICO'].tolist(), convert_to_tensor=True)
     sim = util.cos_sim(emb, emb).cpu().numpy()
     df_red = pd.DataFrame(sim, index=df_group['COD_EMENTA'], columns=df_group['COD_EMENTA'])
+
+    # Exibe no Streamlit
     st.dataframe(df_red.style.background_gradient(cmap="RdYlGn_r"))
+
+    # 1) Grava DataFrame num buffer
     buf = BytesIO()
-    df_red.to_excel(buf, index=True)
+    df_red.to_excel(buf, index=True, sheet_name="Redundância")
     buf.seek(0)
-    st.download_button("⬇️ Baixar Matriz de Redundância", buf, "redundancia_uc.xlsx")
+
+    # 2) Carrega workbook do buffer
+    from openpyxl import load_workbook
+    from openpyxl.formatting.rule import ColorScaleRule
+
+    wb = load_workbook(buf)
+    ws = wb["Redundância"]
+
+    # 3) Define intervalo de células (da coluna B até a última)
+    min_col = 2
+    max_col = ws.max_column
+    max_row = ws.max_row
+    # Função auxiliar para converter índice em letra de coluna
+    def col_letter(idx):
+        return ws.cell(row=1, column=idx).column_letter
+
+    range_str = f"{col_letter(min_col)}2:{col_letter(max_col)}{max_row}"
+
+    # 4) Cria regra: vermelho em valor mínimo → amarelo em 50% → verde em valor máximo
+    rule = ColorScaleRule(
+        start_type='min', start_color='FF0000',
+        mid_type='percentile', mid_value=50, mid_color='FFFF00',
+        end_type='max', end_color='00FF00'
+    )
+    ws.conditional_formatting.add(range_str, rule)
+
+    # 5) Salva de volta num novo buffer
+    buf2 = BytesIO()
+    wb.save(buf2)
+    buf2.seek(0)
+
+    # 6) Botão de download com o arquivo já colorido
+    st.download_button(
+        "⬇️ Baixar Matriz de Redundância (colorida)",
+        data=buf2,
+        file_name="redundancia_uc_colorida.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # --- 6D) Análise Ementa vs ENADE (ajustado para usar a FRASE correta) ---
 else:
