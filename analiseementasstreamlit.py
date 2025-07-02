@@ -122,8 +122,32 @@ else:
     st.info("Seguindo com a separação padrão de frases sem correção de pontuação.")
 
 # --- A partir daqui, df_ementas já contém o texto (corrigido ou não) ---
-st.subheader("Preview das primeiras ementas")
-st.dataframe(df_ementas.head(5))
+st.subheader("Preview das primeiras ementas (texto completo)")
+
+# Exibe as 5 primeiras ementas com texto completo, permitindo quebra de linha
+st.dataframe(
+    df_ementas.head(5)
+        .style
+        .set_properties(
+            subset=["CONTEUDO_PROGRAMATICO"],
+            **{"max-width": "800px", "white-space": "normal"}
+        )
+)
+
+# Exibe o texto completo da primeira ementa para conferência
+st.markdown("**Texto completo da 1ª ementa:**")
+st.text(df_ementas.loc[0, "CONTEUDO_PROGRAMATICO"])
+
+# Botão para baixar todas as ementas em Excel
+buf = BytesIO()
+df_ementas.to_excel(buf, index=False, sheet_name="Ementas")
+buf.seek(0)
+st.download_button(
+    label="Baixar todas as ementas",
+    data=buf,
+    file_name="ementas_completas.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
 # --- 3) Upload do Excel ENADE ---
 uploaded_enade = st.file_uploader(
