@@ -215,7 +215,7 @@ if analise == "Clusterização Ementas":
                     str(row['COD_EMENTA']), fontsize=6)
     ax.set_xlabel("Dimensão 1 (t-SNE 1)")
     ax.set_ylabel("Dimensão 2 (t-SNE 2)")
-    ax.set_title(f"Clusterização das Ementas k = {k})", fontsize=14)
+    ax.set_title(f"Clusterização das Ementas - k = {k}", fontsize=14)
     ax.legend(title="Nome do Cluster", bbox_to_anchor=(1,1))
     st.pyplot(fig)
 
