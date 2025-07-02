@@ -125,10 +125,10 @@ if analise == "Clusterização Ementas":
     # Anota cada ponto com o COD_EMENTA
     for _, row in df_group.iterrows():
         ax.text(
-            row['X'] + 0.4,  # pequeno deslocamento para não sobrepor
+            row['X'] + 0.25,  # pequeno deslocamento para não sobrepor
             row['Y'] + 0.4,
             str(row['COD_EMENTA']),
-            fontsize=7
+            fontsize=6
         )
     ax.set_xlabel("Dimensão 1 (t-SNE 1)")
     ax.set_ylabel("Dimensão 2 (t-SNE 2)")
