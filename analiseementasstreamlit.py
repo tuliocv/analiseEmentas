@@ -92,10 +92,10 @@ enade_expl = enade_expl[enade_expl['FRASE_ENADE'].str.len() > 5].reset_index(dro
 
 # --- 4) Escolha da análise ---
 analise = st.sidebar.selectbox("Escolha a Análise", [
-    "t-SNE das UCs",
-    "Matriz de Similaridade ENADE × Ementas",
+    "Clusterização Ementas",
+    "Matriz de Similaridade",
     "Matriz de Redundância",
-    "Análise Ementa Expandida vs ENADE"
+    "Análise Ementa vs ENADE"
 ])
 
 # --- 5) Carrega modelo em cache ---
