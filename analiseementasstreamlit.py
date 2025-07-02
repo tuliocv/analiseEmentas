@@ -11,6 +11,8 @@ from io import BytesIO
 from sentence_transformers import SentenceTransformer, util
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
+from openpyxl import load_workbook
+from openpyxl.formatting.rule import ColorScaleRule
 
 # Configuração da página
 st.set_page_config(layout="wide")
@@ -161,12 +163,46 @@ elif analise == "Matriz de Similaridade ENADE × Ementas":
         .pivot(index='COD_EMENTA', columns='FRASE_ENADE', values='MAX_SIM')
         .fillna(0)
     )
-    st.dataframe(df_sim.style.background_gradient(cmap="RdYlGn"))
-    buf = BytesIO()
-    df_sim.to_excel(buf, index=True)
-    buf.seek(0)
-    st.download_button("⬇️ Baixar Similaridade", buf, "sim_enade_ementa.xlsx")
 
+    # Exibe no Streamlit
+    st.dataframe(df_sim.style.background_gradient(cmap="RdYlGn"))
+
+    # 1) Grava DataFrame num buffer
+    buf = BytesIO()
+    df_sim.to_excel(buf, index=True, sheet_name="Similaridade")
+    buf.seek(0)
+
+    # 2) Carrega workbook do buffer
+    wb = load_workbook(buf)
+    ws = wb["Similaridade"]
+
+    # 3) Define intervalo de células (coluna B até a última)
+    min_col = 2
+    max_col = ws.max_column
+    max_row = ws.max_row
+    col_letter = lambda idx: ws.cell(row=1, column=idx).column_letter
+    range_str = f"{col_letter(min_col)}2:{col_letter(max_col)}{max_row}"
+
+    # 4) Cria regra: vermelho em 0 → amarelo em 50% → verde em 1
+    rule = ColorScaleRule(
+        start_type='min', start_color='FF0000',
+        mid_type='percentile', mid_value=50, mid_color='FFFF00',
+        end_type='max', end_color='00FF00'
+    )
+    ws.conditional_formatting.add(range_str, rule)
+
+    # 5) Salva de volta no buffer
+    buf2 = BytesIO()
+    wb.save(buf2)
+    buf2.seek(0)
+
+    # 6) Botão de download
+    st.download_button(
+        "⬇️ Baixar Similaridade (com cores)",
+        data=buf2,
+        file_name="sim_enade_ementa_colorido.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 # --- 6C) Matriz de Redundância ---
 elif analise == "Matriz de Redundância":
     st.header("Matriz de Redundância")
