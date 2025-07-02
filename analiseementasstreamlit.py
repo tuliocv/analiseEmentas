@@ -419,6 +419,17 @@ else:
     st.subheader("Resultados por frase ENADE")
     st.dataframe(df_res)
 
+       # 6D.6) Download da planilha de resultados
+    buf = BytesIO()
+    df_res.to_excel(buf, index=False, sheet_name="Analise_ENADE")
+    buf.seek(0)
+    st.download_button(
+        "Baixar Análise Expandida vs ENADE",
+        data=buf,
+        file_name="analise_ementa_vs_enade.xlsx",
+        mime="application/vnd.openxmlformats-officedocument-spreadsheetml.sheet"
+    )
+    
     # 6D.5) Gráfico de frequência de ementas em UCs ≥ limiar
     st.subheader("Gráfico de frequência de ementas em UCs ≥ limiar")
     col_uc = f"UCs_>={int(limiar*100)}%"
@@ -450,15 +461,4 @@ else:
         data=buf_fig,
         file_name="frequencia_ementas.png",
         mime="image/png"
-    )
-
-    # 6D.6) Download da planilha de resultados
-    buf = BytesIO()
-    df_res.to_excel(buf, index=False, sheet_name="Analise_ENADE")
-    buf.seek(0)
-    st.download_button(
-        "Baixar Análise Expandida vs ENADE",
-        data=buf,
-        file_name="analise_ementa_vs_enade.xlsx",
-        mime="application/vnd.openxmlformats-officedocument-spreadsheetml.sheet"
     )
