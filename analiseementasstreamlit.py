@@ -16,11 +16,11 @@ from openpyxl.formatting.rule import ColorScaleRule
 
 # Configuração da página
 st.set_page_config(layout="wide")
-st.title("📂📑 Análise de Ementas de Psicologia via ZIP")
+st.title("📂📑 Análise de Ementas via pasta .zip")
 
 # --- 1) Upload do ZIP de PDFs de ementas ---
 uploaded_zip = st.file_uploader(
-    "Faça upload do arquivo ZIP com todos os PDFs de ementas",
+    "Faça upload dos arquivos, em PDF das ementas, em uma pasta .zip",
     type=["zip"]
 )
 if not uploaded_zip:
@@ -198,7 +198,7 @@ elif analise == "Matriz de Similaridade ENADE × Ementas":
 
     # 6) Botão de download
     st.download_button(
-        "⬇️ Baixar Similaridade (com cores)",
+        "⬇️ Baixar Matriz de Similaridade",
         data=buf2,
         file_name="sim_enade_ementa_colorido.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -219,7 +219,7 @@ elif analise == "Matriz de Redundância":
     buf = BytesIO()
     df_red.to_excel(buf, index=True)
     buf.seek(0)
-    st.download_button("⬇️ Baixar Redundância", buf, "redundancia_uc.xlsx")
+    st.download_button("⬇️ Baixar Matriz de Redundância", buf, "redundancia_uc.xlsx")
 
 # --- 6D) Análise Ementa Expandida vs ENADE ---
 else:
