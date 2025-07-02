@@ -451,7 +451,7 @@ else:
     fig.savefig(buf_fig, format="png", dpi=300, bbox_inches="tight")
     buf_fig.seek(0)
     st.download_button(
-        label="⬇️ Baixar gráfico de frequência (PNG)",
+        label="Baixar gráfico de frequência",
         data=buf_fig,
         file_name="frequencia_ementas.png",
         mime="image/png"
