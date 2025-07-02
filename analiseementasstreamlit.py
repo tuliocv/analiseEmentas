@@ -15,7 +15,7 @@ from openpyxl import load_workbook
 from openpyxl.formatting.rule import ColorScaleRule
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import CountVectorizer
-
+from nltk.corpus import stopwords
 
 # Configuração da página
 st.set_page_config(layout="wide")
@@ -108,6 +108,7 @@ def load_model():
 model = load_model()
 
 
+
 # --- 6A) Clusterização Ementas via KMeans + t-SNE com nomes temáticos ---
 if analise == "Clusterização Ementas":
     st.header("Clusterização das UCs via KMeans + t-SNE")
@@ -139,14 +140,17 @@ if analise == "Clusterização Ementas":
     df_group['cluster'] = kmeans.fit_predict(emb)
 
     # 5) Gera nomes temáticos para cada cluster
+    #    consolida texto
     cluster_texts = (
         df_group
         .groupby('cluster')['CONTEUDO_PROGRAMATICO']
         .apply(lambda docs: " ".join(docs))
         .tolist()
     )
+    # usa stopwords do nltk
+    stop_pt = set(stopwords.words('portuguese'))
     vectorizer = CountVectorizer(
-        stop_words='portuguese', 
+        stop_words=stop_pt, 
         max_features=50, 
         ngram_range=(1,2)
     )
