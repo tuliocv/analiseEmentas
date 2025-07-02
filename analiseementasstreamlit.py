@@ -17,6 +17,7 @@ from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import CountVectorizer
 import openai
 
+st.write(f"🔍 Versão do openai instalada: {openai.__version__}")
 
 # Configuração da página
 st.set_page_config(layout="wide")
