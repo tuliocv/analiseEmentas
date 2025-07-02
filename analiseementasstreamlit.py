@@ -109,7 +109,7 @@ model = load_model()
 
 
 
-# --- 6A) Clusterização Ementas via KMeans + t-SNE com nomes temáticos ---
+# --- 6A) Clusterização Ementas via KMeans + t-SNE c/ nomes automáticos ---
 if analise == "Clusterização Ementas":
     st.header("Clusterização das UCs via KMeans + t-SNE")
 
@@ -123,7 +123,7 @@ if analise == "Clusterização Ementas":
 
     # 2) Gera embeddings SBERT
     texts = df_group['CONTEUDO_PROGRAMATICO'].tolist()
-    emb   = model.encode(texts, convert_to_tensor=False)
+    emb   = model.encode(texts, convert_to_tensor=False)  # shape (n_uc, dim)
 
     # 3) Slider para número de clusters K
     max_k = min(10, len(emb))
@@ -139,24 +139,20 @@ if analise == "Clusterização Ementas":
     kmeans = KMeans(n_clusters=k, random_state=42)
     df_group['cluster'] = kmeans.fit_predict(emb)
 
-    # 5) Gera nomes temáticos para cada cluster (sem stop_words)
-    cluster_texts = (
-        df_group
-        .groupby('cluster')['CONTEUDO_PROGRAMATICO']
-        .apply(lambda docs: " ".join(docs))
-        .tolist()
-    )
-    vectorizer = CountVectorizer(
-        max_features=50, 
-        ngram_range=(1,2)
-    )
-    X_counts = vectorizer.fit_transform(cluster_texts).toarray()
-    terms = vectorizer.get_feature_names_out()
+    # 5) Gera nome automático de cada cluster = NOME UC mais próximo do centróide
+    centroids = kmeans.cluster_centers_  # (k, dim)
     cluster_names = {}
-    for cid, row in enumerate(X_counts):
-        top5 = row.argsort()[-5:][::-1]
-        keywords = [terms[i] for i in top5]
-        cluster_names[cid] = ", ".join(keywords)
+    for cid in range(k):
+        # índices das UCs nesse cluster
+        mask = (df_group['cluster'] == cid)
+        indices = df_group[mask].index.to_numpy()
+        # calcula distância L2 ao centróide
+        dists = np.linalg.norm(emb[indices] - centroids[cid], axis=1)
+        # pega o índice de menor distância
+        rep_idx = indices[dists.argmin()]
+        # nome representativo
+        cluster_names[cid] = df_group.at[rep_idx, 'NOME UC']
+    # anexa ao DataFrame
     df_group['cluster_name'] = df_group['cluster'].map(cluster_names)
 
     # 6) t-SNE para visualização 2D (perplexity automático)
@@ -167,15 +163,15 @@ if analise == "Clusterização Ementas":
     ).fit_transform(emb)
     df_group['X'], df_group['Y'] = coords[:,0], coords[:,1]
 
-    # 7) Plota scatter usando cores por cluster e anota COD_EMENTA
+    # 7) Plota scatter colorido por nome automático
     fig, ax = plt.subplots(figsize=(8,6))
     palette = plt.cm.get_cmap("tab10", k)
-    for c in range(k):
-        sub = df_group[df_group['cluster']==c]
+    for cid in range(k):
+        sub = df_group[df_group['cluster']==cid]
         ax.scatter(
             sub['X'], sub['Y'],
-            color=palette(c),
-            label=f"{c}: {cluster_names[c]}",
+            color=palette(cid),
+            label=cluster_names[cid],
             s=40, alpha=0.7
         )
         for _, row in sub.iterrows():
@@ -188,7 +184,7 @@ if analise == "Clusterização Ementas":
     ax.set_xlabel("Dimensão 1 (t-SNE 1)")
     ax.set_ylabel("Dimensão 2 (t-SNE 2)")
     ax.set_title(f"KMeans + t-SNE (K={k})", fontsize=14)
-    ax.legend(bbox_to_anchor=(1,1))
+    ax.legend(title="Cluster representativo", bbox_to_anchor=(1,1))
     st.pyplot(fig)
 
     # 8) Download do gráfico PNG
@@ -202,12 +198,13 @@ if analise == "Clusterização Ementas":
         mime="image/png"
     )
 
-    # 9) Exibe tabela de clusters com nomes e botão de download
+    # 9) Exibe tabela de clusters e botão de download
     st.subheader("Clusters atribuídos por UC")
     st.dataframe(df_group[['COD_EMENTA','NOME UC','cluster','cluster_name']])
 
     buf = BytesIO()
-    df_group[['COD_EMENTA','NOME UC','cluster','cluster_name']].to_excel(buf, index=False)
+    df_group[['COD_EMENTA','NOME UC','cluster','cluster_name']] \
+        .to_excel(buf, index=False)
     buf.seek(0)
     st.download_button(
         label="📥 Baixar Tabela de Clusters",
