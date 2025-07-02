@@ -15,7 +15,6 @@ from openpyxl import load_workbook
 from openpyxl.formatting.rule import ColorScaleRule
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import CountVectorizer
-from nltk.corpus import stopwords
 import openai
 
 
