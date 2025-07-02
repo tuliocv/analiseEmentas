@@ -40,33 +40,39 @@ with tempfile.TemporaryDirectory() as tmpdir:
     registros = []
     for root, _, files in os.walk(tmpdir):
         for fn in files:
-            if fn.lower().endswith(".pdf"):
-                path = os.path.join(root, fn)
-                texto = ""
-                with pdfplumber.open(path) as pdf:
-                    for p in pdf.pages:
-                        texto += (p.extract_text() or "") + "\n"
+            if not fn.lower().endswith(".pdf"):
+                continue
+            path = os.path.join(root, fn)
+            texto = ""
+            with pdfplumber.open(path) as pdf:
+                for p in pdf.pages:
+                    texto += (p.extract_text() or "") + "\n"
 
-                # extrai nome e código
-                m = re.search(
-                    r"UNIDADE CURRICULAR[:\s]*(.+?)\s*\(\s*(\d+)\s*\)",
-                    texto, re.IGNORECASE | re.DOTALL
-                )
-                nome = m.group(1).strip() if m else fn
-                cod  = m.group(2).strip() if m else fn
+            # --- Limpeza: remove linhas de paginação tipo "2 de 3", "10 de 12" etc. ---
+            # o flag (?m) faz com que ^ e $ considerem início/fim de cada linha
+            texto = re.sub(r"(?m)^\s*\d+\s+de\s+\d+\s*$", "", texto)
 
-                # extrai conteúdo programático
-                m2 = re.search(
-                    r"Conte[úu]do program[aá]tico\s*[:\-–]?\s*(.*?)\s*(?:\n\s*Bibliografia|\Z)",
-                    texto, re.IGNORECASE | re.DOTALL
-                )
-                conteudo = m2.group(1).strip() if m2 else ""
+            # extrai nome e código
+            m = re.search(
+                r"UNIDADE CURRICULAR[:\s]*(.+?)\s*\(\s*(\d+)\s*\)",
+                texto, re.IGNORECASE | re.DOTALL
+            )
+            nome = m.group(1).strip() if m else fn
+            cod  = m.group(2).strip() if m else fn
 
-                registros.append({
-                    "COD_EMENTA": cod,
-                    "NOME UC": nome,
-                    "CONTEUDO_PROGRAMATICO": conteudo
-                })
+            # extrai conteúdo programático
+            m2 = re.search(
+                r"Conte[úu]do program[aá]tico\s*[:\-–]?\s*(.*?)(?=\n\s*Bibliografia|\Z)",
+                texto, re.IGNORECASE | re.DOTALL
+            )
+            conteudo = m2.group(1).strip() if m2 else ""
+
+            registros.append({
+                "COD_EMENTA": cod,
+                "NOME UC": nome,
+                "CONTEUDO_PROGRAMATICO": conteudo
+            })
+
     df_ementas = pd.DataFrame(registros)
 
 st.success(f"{len(df_ementas)} ementas carregadas.")
