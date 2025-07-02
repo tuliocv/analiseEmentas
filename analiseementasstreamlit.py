@@ -107,11 +107,11 @@ model = load_model()
 
 
 
-# --- 6A) Clusterização Ementas com KMeans ---
+# --- 6A) Clusterização Ementas via KMeans + t-SNE ---
 if analise == "Clusterização Ementas":
-    st.header("Clusterização das UCs via KMeans")
+    st.header("Clusterização das UCs via KMeans + t-SNE")
 
-    # 1) Prepara o DataFrame agregado (uma linha por UC)
+    # 1) Agrega cada UC em um único texto
     df_group = (
         df_ementas
         .groupby(['COD_EMENTA','NOME UC'])['CONTEUDO_PROGRAMATICO']
@@ -123,44 +123,74 @@ if analise == "Clusterização Ementas":
     texts = df_group['CONTEUDO_PROGRAMATICO'].tolist()
     emb   = model.encode(texts, convert_to_tensor=False)
 
-    # 3) Slider para o número de clusters
-    k = st.slider("Número de clusters (K)", min_value=2, max_value=10, value=4, step=1)
+    # 3) Slider apenas para número de clusters K
+    max_k = min(10, len(emb))
+    k = st.slider(
+        "Número de clusters (K)", 
+        min_value=2, 
+        max_value=max_k, 
+        value=min(4, max_k), 
+        step=1
+    )
 
     # 4) Executa KMeans
     kmeans = KMeans(n_clusters=k, random_state=42)
     df_group['cluster'] = kmeans.fit_predict(emb)
 
-    # 5) Opcional: t-SNE para visualização 2D
-    perp   = st.slider("Perplexity (t-SNE, somente p/ viz.)", 5, 50, 30, step=5)
-    coords = TSNE(n_components=2, random_state=42, perplexity=perp).fit_transform(emb)
+    # 5) Projetar em 2D com t-SNE (com perplexity fixo ou automático)
+    coords = TSNE(
+        n_components=2, 
+        random_state=42, 
+        perplexity=min(30, max(2, len(emb)//3))
+    ).fit_transform(emb)
     df_group['X'], df_group['Y'] = coords[:,0], coords[:,1]
 
-    # 6) Plota scatter colorido por cluster
+    # 6) Plota scatter colorido por cluster e anota COD_EMENTA
     fig, ax = plt.subplots(figsize=(8,6))
     palette = plt.cm.get_cmap("tab10", k)
     for c in range(k):
-        sub = df_group[df_group['cluster']==c]
-        ax.scatter(sub['X'], sub['Y'], color=palette(c), label=f"Cluster {c}", s=40, alpha=0.7)
-        for _, row in sub.iterrows():
-            ax.text(row['X']+0.3, row['Y']+0.3, str(row['COD_EMENTA']), fontsize=6)
-    ax.set_xlabel("t-SNE 1")
-    ax.set_ylabel("t-SNE 2")
-    ax.set_title(f"KMeans (k={k}) sobre embeddings de UCs", fontsize=14)
+        subset = df_group[df_group['cluster']==c]
+        ax.scatter(
+            subset['X'], subset['Y'],
+            color=palette(c),
+            label=f"Cluster {c}",
+            s=40, alpha=0.7
+        )
+        for _, row in subset.iterrows():
+            ax.text(
+                row['X'] + 0.3,
+                row['Y'] + 0.3,
+                str(row['COD_EMENTA']),
+                fontsize=6
+            )
+    ax.set_xlabel("Dimensão 1 (t-SNE 1)")
+    ax.set_ylabel("Dimensão 2 (t-SNE 2)")
+    ax.set_title(f"KMeans + t-SNE (K={k})", fontsize=14)
     ax.legend(bbox_to_anchor=(1,1))
     st.pyplot(fig)
 
-    # 7) Exibe tabela de resultados
-    st.subheader("Tabela de Clusters")
+    # 7) Download do gráfico PNG
+    buf_img = BytesIO()
+    fig.savefig(buf_img, format="png", dpi=300, bbox_inches="tight")
+    buf_img.seek(0)
+    st.download_button(
+        label="📥 Baixar Gráfico t-SNE",
+        data=buf_img,
+        file_name="tsne_kmeans_ucs.png",
+        mime="image/png"
+    )
+
+    # 8) Exibe e permite download da tabela de clusters
+    st.subheader("Clusters atribuídos por UC")
     st.dataframe(df_group[['COD_EMENTA','NOME UC','cluster']])
 
-    # 8) Download dos clusters em Excel
     buf = BytesIO()
     df_group[['COD_EMENTA','NOME UC','cluster']].to_excel(buf, index=False)
     buf.seek(0)
     st.download_button(
-        "📥 Baixar clusters em Excel",
+        label="📥 Baixar Tabela de Clusters",
         data=buf,
-        file_name="clusters_ementas.xlsx",
+        file_name="clusters_ucs.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
