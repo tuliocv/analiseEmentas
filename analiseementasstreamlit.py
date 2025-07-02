@@ -17,7 +17,7 @@ from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import CountVectorizer
 import openai
 
-st.write(f"🔍 Versão do openai instalada: {openai.__version__}")
+#st.write(f"🔍 Versão do openai instalada: {openai.__version__}")
 
 # Configuração da página
 st.set_page_config(layout="wide")
@@ -79,7 +79,7 @@ st.success(f"{len(df_ementas)} ementas carregadas.")
 
 # --- Pergunta ao usuário sobre correção de pontuação ---
 usar_gpt = st.checkbox(
-    "🔄 Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases?"
+    "Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases?"
 )
 
 if usar_gpt:
@@ -91,9 +91,7 @@ if usar_gpt:
         @st.cache_data
         def corrigir_pontuacao(texto: str) -> str:
             prompt = (
-                "Revise o texto abaixo para melhorar a pontuação: "
-                "adicione ou ajuste pontos finais, vírgulas e demais sinais, "
-                "mantendo o sentido original.\n\n"
+                "Corrija a pontuação e divida corretamente em frases o seguinte texto:\n\n"
                 f"Texto:\n{texto}"
             )
             # Nova API v1
