@@ -77,9 +77,8 @@ with tempfile.TemporaryDirectory() as tmpdir:
 # --- Após criar df_ementas ---
 st.success(f"{len(df_ementas)} ementas carregadas.")
 
-# --- Pergunta ao usuário sobre correção de pontuação ---
 usar_gpt = st.checkbox(
-    "Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases?"
+    "🔄 Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases?"
 )
 
 if usar_gpt:
@@ -94,11 +93,9 @@ if usar_gpt:
                 "Você é um especialista em correção de textos acadêmicos. "
                 "Receba o texto abaixo e **adicione um ponto-final ao fim de cada frase**, "
                 "sem alterar palavras, estrutura ou significado. "
-                "Mantenha todo o texto em um único parágrafo, apenas garantindo que "
-                "cada sentença termine com “.”\n\n"
+                "Mantenha todo o texto em um único parágrafo.\n\n"
                 f"TEXTO ORIGINAL:\n{texto}"
             )
-            # Nova API v1
             resp = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -106,7 +103,7 @@ if usar_gpt:
                     {"role": "user",   "content": prompt}
                 ],
                 temperature=0.0,
-                max_tokens=len(texto.split()) // 2
+                max_tokens=len(texto.split())
             )
             return resp.choices[0].message.content.strip()
 
@@ -116,38 +113,32 @@ if usar_gpt:
                 .apply(corrigir_pontuacao)
             )
         st.success("Pontuação corrigida em todas as ementas.")
+
+        # Visualização completa em caixas de texto roláveis
+        st.subheader("Texto completo das primeiras ementas corrigidas")
+        for idx, row in df_ementas.head(5).iterrows():
+            st.markdown(f"**{row['COD_EMENTA']} — {row['NOME UC']}**")
+            st.text_area(
+                label=f"Ementa {row['COD_EMENTA']}",
+                value=row['CONTEUDO_PROGRAMATICO'],
+                height=150
+            )
+
+        # Botão para baixar todas as ementas em Excel
+        buf = BytesIO()
+        df_ementas.to_excel(buf, index=False, sheet_name="Ementas")
+        buf.seek(0)
+        st.download_button(
+            label="⬇️ Baixar todas as ementas (Excel)",
+            data=buf,
+            file_name="ementas_completas.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
     else:
         st.info("Para usar a correção via GPT, insira sua OpenAI API Key acima.")
 else:
-    st.info("Seguindo com a separação padrão de frases sem correção de pontuação.")
-
-# --- A partir daqui, df_ementas já contém o texto (corrigido ou não) ---
-st.subheader("Preview das primeiras ementas (texto completo)")
-
-# Exibe as 5 primeiras ementas com texto completo, permitindo quebra de linha
-st.dataframe(
-    df_ementas.head(5)
-        .style
-        .set_properties(
-            subset=["CONTEUDO_PROGRAMATICO"],
-            **{"max-width": "800px", "white-space": "normal"}
-        )
-)
-
-# Exibe o texto completo da primeira ementa para conferência
-st.markdown("**Texto completo da 1ª ementa:**")
-st.text(df_ementas.loc[0, "CONTEUDO_PROGRAMATICO"])
-
-# Botão para baixar todas as ementas em Excel
-buf = BytesIO()
-df_ementas.to_excel(buf, index=False, sheet_name="Ementas")
-buf.seek(0)
-st.download_button(
-    label="Baixar todas as ementas",
-    data=buf,
-    file_name="ementas_completas.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    st.info("Seguindo sem correção de pontuação via GPT.")
 
 # --- 3) Upload do Excel ENADE ---
 uploaded_enade = st.file_uploader(
