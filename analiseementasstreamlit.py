@@ -74,9 +74,10 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
     df_ementas = pd.DataFrame(registros)
 
-# --- Pergunta ao usuário sobre correção de pontuação ---
+# --- Após criar df_ementas ---
 st.success(f"{len(df_ementas)} ementas carregadas.")
 
+# --- Pergunta ao usuário sobre correção de pontuação ---
 usar_gpt = st.checkbox(
     "🔄 Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases?"
 )
@@ -95,7 +96,8 @@ if usar_gpt:
                 "mantendo o sentido original.\n\n"
                 f"Texto:\n{texto}"
             )
-            resp = openai.ChatCompletion.create(
+            # Nova API v1
+            resp = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "Você é um especialista em revisão de texto."},
@@ -117,7 +119,7 @@ if usar_gpt:
 else:
     st.info("Seguindo com a separação padrão de frases sem correção de pontuação.")
 
-# --- Continuação do fluxo normal ---
+# --- A partir daqui, df_ementas já contém o texto (corrigido ou não) ---
 st.subheader("Preview das primeiras ementas")
 st.dataframe(df_ementas.head(5))
 
