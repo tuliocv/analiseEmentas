@@ -78,14 +78,15 @@ with tempfile.TemporaryDirectory() as tmpdir:
 st.success(f"{len(df_ementas)} ementas carregadas.")
 
 usar_gpt = st.checkbox(
-    "🔄 Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases?"
+    "Corrigir pontuação das ementas via OpenAI GPT antes da separação de frases? Utilizaremos o GPT3.5-Turbo."
 )
 
 if usar_gpt:
     api_key = st.text_input("Insira sua OpenAI API Key:", type="password")
     if api_key:
-        import openai
-        openai.api_key = api_key
+        # Usa a nova interface do SDK v1
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
 
         @st.cache_data
         def corrigir_pontuacao(texto: str) -> str:
@@ -95,7 +96,7 @@ if usar_gpt:
                 "mantendo o sentido original.\n\n"
                 f"Texto:\n{texto}"
             )
-            resp = openai.ChatCompletion.create(
+            resp = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "Você é um especialista em revisão de texto."},
