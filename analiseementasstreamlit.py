@@ -91,7 +91,7 @@ if usar_gpt:
         @st.cache_data
         def corrigir_pontuacao(texto: str) -> str:
             prompt = (
-                "Corrija a pontuação e divida corretamente em frases o seguinte texto:\n\n"
+                "Corrija a pontuação do seguinte texto:\n\n"
                 f"Texto:\n{texto}"
             )
             # Nova API v1
