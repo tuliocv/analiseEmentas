@@ -6,4 +6,4 @@ sentence-transformers
 scikit-learn
 openpyxl
 matplotlib
-nltk
+openai
