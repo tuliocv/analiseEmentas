@@ -110,7 +110,7 @@ def load_model():
 model = load_model()
 
 
-# --- 6A) Clusterização Ementas via KMeans + t-SNE c/ opção de IA ---
+# --- 6A) Clusterização Ementas via KMeans + t-SNE c/ nomes automáticos GPT v1.0+ ---
 if analise == "Clusterização Ementas":
     st.header("Clusterização das UCs via KMeans + t-SNE")
 
@@ -124,9 +124,9 @@ if analise == "Clusterização Ementas":
 
     # 2) Gera embeddings SBERT
     texts = df_group['CONTEUDO_PROGRAMATICO'].tolist()
-    emb   = model.encode(texts, convert_to_tensor=False)  # shape (n_uc, dim)
+    emb   = model.encode(texts, convert_to_tensor=False)
 
-    # 3) Escolha do número de clusters K
+    # 3) Slider para número de clusters K
     max_k = min(10, len(emb))
     k = st.slider(
         "Número de clusters (K)",
@@ -140,115 +140,96 @@ if analise == "Clusterização Ementas":
     kmeans = KMeans(n_clusters=k, random_state=42)
     df_group['cluster'] = kmeans.fit_predict(emb)
 
-    # 5) Escolha de rotulação automática
+    # 5) Pergunta se quer usar GPT para nomear
     use_ai = st.radio(
-        "Deseja usar a API ChatGPT para nomear os clusters automaticamente?",
+        "Usar ChatGPT para nomear clusters?",
         ("Não, usar centróide", "Sim, usar GPT-3.5")
     )
 
     cluster_names = {}
-    if use_ai.startswith("Sim"):
-        # --- 5a) Pede chave e configura OpenAI ---
-        openai_key = st.text_input(
-            "Insira sua OpenAI API Key (será mantida oculta)",
-            type="password"
-        )
-        if openai_key:
-            openai.api_key = openai_key
-            # --- 5b) Para cada cluster, chama o GPT zero-shot ---
+    if use_ai == "Sim, usar GPT-3.5":
+        key = st.text_input("Insira sua OpenAI API Key:", type="password")
+        if key:
+            openai.api_key = key
             for cid in range(k):
                 exemplos = df_group[df_group['cluster']==cid]['CONTEUDO_PROGRAMATICO'].tolist()[:5]
                 prompt = (
                     "Estas são ementas de um mesmo grupo de disciplinas:\n\n"
                     + "\n".join(f"- {e}" for e in exemplos)
-                    + "\n\nPor favor, dê um **nome curto** (máx. 3 palavras) que resuma o tema comum."
+                    + "\n\nPor favor, dê um nome curto (até 3 palavras) que resuma o tema comum."
                 )
                 try:
-                    resp = openai.ChatCompletion.create(
+                    resp = openai.chat.completions.create(
                         model="gpt-3.5-turbo",
                         messages=[
-                            {"role":"system","content":"Você resume grupos de ementas em um nome."},
-                            {"role":"user","content":prompt}
+                            {"role":"system","content":"Você resume grupos de ementas em um nome curto."},
+                            {"role":"user",  "content":prompt}
                         ],
                         temperature=0.0,
                         max_tokens=20
                     )
                     nome = resp.choices[0].message.content.strip().strip('"')
                 except Exception as e:
-                    st.warning(f"Erro no GPT para cluster {cid}: {e}")
+                    st.warning(f"GPT erro no cluster {cid}: {e}")
                     nome = f"Cluster {cid}"
                 cluster_names[cid] = nome
         else:
-            st.info("Insira a API Key para gerar nomes via GPT.")
-            # enquanto não inserir, não gera nomes
+            st.info("Informe a API Key para gerar nomes via GPT.")
             for cid in range(k):
                 cluster_names[cid] = f"Cluster {cid}"
     else:
-        # --- 5c) Fallback centróide: pega NOME UC mais próximo do centróide ---
+        # fallback centróide
         centroids = kmeans.cluster_centers_
         for cid in range(k):
-            mask    = (df_group['cluster']==cid)
-            indices = df_group[mask].index.to_numpy()
-            dists   = np.linalg.norm(emb[indices] - centroids[cid], axis=1)
-            rep_idx = indices[dists.argmin()]
+            mask    = df_group['cluster']==cid
+            idxs    = df_group[mask].index.to_numpy()
+            dists   = np.linalg.norm(emb[idxs] - centroids[cid], axis=1)
+            rep_idx = idxs[dists.argmin()]
             cluster_names[cid] = df_group.at[rep_idx, 'NOME UC']
 
-    # anexa ao DataFrame
     df_group['cluster_name'] = df_group['cluster'].map(cluster_names)
 
-    # 6) t-SNE para visualização 2D (perplexity automático)
-    coords = TSNE(
-        n_components=2,
-        random_state=42,
-        perplexity=min(30, max(2, len(emb)//3))
+    # 6) t-SNE
+    coords = TSNE(n_components=2, random_state=42,
+                  perplexity=min(30, max(2, len(emb)//3))
     ).fit_transform(emb)
     df_group['X'], df_group['Y'] = coords[:,0], coords[:,1]
 
-    # 7) Plota scatter colorido por nome de cluster
+    # 7) Plot
     fig, ax = plt.subplots(figsize=(8,6))
     palette = plt.cm.get_cmap("tab10", k)
     for cid in range(k):
         sub = df_group[df_group['cluster']==cid]
-        ax.scatter(
-            sub['X'], sub['Y'],
-            color=palette(cid),
-            label=cluster_names[cid],
-            s=40, alpha=0.7
-        )
+        ax.scatter(sub['X'], sub['Y'],
+                   color=palette(cid),
+                   label=cluster_names[cid],
+                   s=40, alpha=0.7)
         for _, row in sub.iterrows():
-            ax.text(
-                row['X'] + 0.3,
-                row['Y'] + 0.3,
-                str(row['COD_EMENTA']),
-                fontsize=6
-            )
+            ax.text(row['X']+0.3, row['Y']+0.3,
+                    str(row['COD_EMENTA']), fontsize=6)
     ax.set_xlabel("Dimensão 1 (t-SNE 1)")
     ax.set_ylabel("Dimensão 2 (t-SNE 2)")
     ax.set_title(f"KMeans + t-SNE (K={k})", fontsize=14)
     ax.legend(title="Nome do Cluster", bbox_to_anchor=(1,1))
     st.pyplot(fig)
 
-    # 8) Botão para baixar gráfico PNG
-    buf_img = BytesIO()
-    fig.savefig(buf_img, format="png", dpi=300, bbox_inches="tight")
-    buf_img.seek(0)
-    st.download_button(
-        "📥 Baixar Gráfico t-SNE",
-        buf_img, "tsne_kmeans_ucs.png", "image/png"
-    )
+    # 8) Download gráfico
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
+    buf.seek(0)
+    st.download_button("📥 Baixar Gráfico t-SNE",
+                       buf, "tsne_kmeans.png", "image/png")
 
-    # 9) Exibe e baixa tabela de clusters
+    # 9) Tabela de clusters
     st.subheader("Clusters atribuídos por UC")
     st.dataframe(df_group[['COD_EMENTA','NOME UC','cluster','cluster_name']])
-    buf = BytesIO()
+    buf2 = BytesIO()
     df_group[['COD_EMENTA','NOME UC','cluster','cluster_name']] \
-        .to_excel(buf, index=False)
-    buf.seek(0)
-    st.download_button(
-        "📥 Baixar Tabela de Clusters",
-        buf, "clusters_ucs.xlsx",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        .to_excel(buf2, index=False)
+    buf2.seek(0)
+    st.download_button("📥 Baixar Tabela de Clusters",
+                       buf2, "clusters_ucs.xlsx",
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # --- 6B) Matriz de Similaridade ---
 elif analise == "Matriz de Similaridade":
