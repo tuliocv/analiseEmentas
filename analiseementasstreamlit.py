@@ -129,7 +129,7 @@ if analise == "t-SNE das UCs":
     st.pyplot(fig)
 
 # --- 6B) Matriz de Similaridade ---
-elif analise == "Matriz de Similaridade ENADE × Ementas":
+elif analise == "Matriz de Similaridade":
     st.header("Similaridade ENADE × Ementas")
     # explode ementas em frases
     ementa_expl = (
@@ -223,7 +223,7 @@ elif analise == "Matriz de Redundância":
 
 # --- 6D) Análise Ementa Expandida vs ENADE ---
 else:
-    st.header("🔄 Análise Ementa Expandida vs ENADE")
+    st.header("🔄 Análise Ementa vs ENADE")
 
     # explode contextualizado em frases
     df_ctx = df_ementas.rename(
