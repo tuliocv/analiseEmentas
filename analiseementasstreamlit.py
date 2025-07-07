@@ -240,6 +240,7 @@ if analise == "Clusterização Ementas":
 # --- 6B) Matriz de Similaridade ---
 elif analise == "Matriz de Similaridade":
     st.header("Matriz de Similaridade")
+
     # explode ementas em frases
     ementa_expl = (
         df_ementas
@@ -251,64 +252,64 @@ elif analise == "Matriz de Similaridade":
         .explode('FRASE')
         .assign(FRASE=lambda df: df['FRASE'].str.strip())
     )
-    ementa_expl = ementa_expl[ementa_expl['FRASE'].str.len()>5]
+    ementa_expl = ementa_expl[ementa_expl['FRASE'].str.len() > 5]
 
+    # calcula embeddings
     with st.spinner("Gerando embeddings…"):
         emb_e = model.encode(ementa_expl['FRASE'].tolist(), convert_to_tensor=True)
         emb_n = model.encode(enade_expl['FRASE_ENADE'].tolist(), convert_to_tensor=True)
 
+    # similaridade coseno
     sim = util.cos_sim(emb_n, emb_e).cpu().numpy()
+
+    # monta lista de registros
     rec = []
     idxs = ementa_expl.groupby('COD_EMENTA').indices
     for cod, sidx in idxs.items():
-        for i,row in enade_expl.iterrows():
+        for i, row in enade_expl.iterrows():
             rec.append({
                 "COD_EMENTA": cod,
                 "FRASE_ENADE": row['FRASE_ENADE'],
                 "MAX_SIM": float(sim[i, sidx].max())
             })
+
+    # usa pivot_table para agregar duplicatas automaticamente
     df_sim = (
         pd.DataFrame(rec)
-        .pivot(index='COD_EMENTA', columns='FRASE_ENADE', values='MAX_SIM')
-        .fillna(0)
+          .pivot_table(
+             index='COD_EMENTA',
+             columns='FRASE_ENADE',
+             values='MAX_SIM',
+             aggfunc='max',    # pega o maior valor em caso de duplicatas
+             fill_value=0
+          )
     )
 
-    # Exibe no Streamlit
+    # exibe no Streamlit
     st.dataframe(df_sim.style.background_gradient(cmap="RdYlGn"))
 
-    # 1) Grava DataFrame num buffer
+    # prepara download em Excel com formatação condicional
     buf = BytesIO()
-    df_sim.to_excel(buf, index=True, sheet_name="Similaridade")
+    # escreve DataFrame no buffer
+    with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
+        df_sim.to_excel(writer, sheet_name="Similaridade")
+        wb  = writer.book
+        ws  = writer.sheets["Similaridade"]
+        (r, c) = df_sim.shape
+        start = xl_rowcol_to_cell(1, 1)
+        end   = xl_rowcol_to_cell(r, c)
+        # aplica escala de cores
+        ws.conditional_format(f"{start}:{end}", {
+            'type':       '3_color_scale',
+            'min_type':   'min',   'min_color':  "#FF0000",
+            'mid_type':   'percentile', 'mid_value':50, 'mid_color':"#FFFF00",
+            'max_type':   'max',   'max_color':  "#00FF00"
+        })
     buf.seek(0)
 
-    # 2) Carrega workbook do buffer
-    wb = load_workbook(buf)
-    ws = wb["Similaridade"]
-
-    # 3) Define intervalo de células (coluna B até a última)
-    min_col = 2
-    max_col = ws.max_column
-    max_row = ws.max_row
-    col_letter = lambda idx: ws.cell(row=1, column=idx).column_letter
-    range_str = f"{col_letter(min_col)}2:{col_letter(max_col)}{max_row}"
-
-    # 4) Cria regra: vermelho em 0 → amarelo em 50% → verde em 1
-    rule = ColorScaleRule(
-        start_type='min', start_color='FF0000',
-        mid_type='percentile', mid_value=50, mid_color='FFFF00',
-        end_type='max', end_color='00FF00'
-    )
-    ws.conditional_formatting.add(range_str, rule)
-
-    # 5) Salva de volta no buffer
-    buf2 = BytesIO()
-    wb.save(buf2)
-    buf2.seek(0)
-
-    # 6) Botão de download
     st.download_button(
         "⬇️ Baixar Matriz de Similaridade",
-        data=buf2,
+        data=buf,
         file_name="sim_enade_ementa_colorido.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
