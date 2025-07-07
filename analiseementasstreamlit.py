@@ -273,14 +273,14 @@ elif analise == "Matriz de Similaridade":
                 "MAX_SIM": float(sim[i, sidx].max())
             })
 
-    # usa pivot_table para agregar duplicatas automaticamente
+    # pivot_table para resolver duplicatas
     df_sim = (
         pd.DataFrame(rec)
           .pivot_table(
              index='COD_EMENTA',
              columns='FRASE_ENADE',
              values='MAX_SIM',
-             aggfunc='max',    # pega o maior valor em caso de duplicatas
+             aggfunc='max',
              fill_value=0
           )
     )
@@ -288,28 +288,42 @@ elif analise == "Matriz de Similaridade":
     # exibe no Streamlit
     st.dataframe(df_sim.style.background_gradient(cmap="RdYlGn"))
 
-    # prepara download em Excel com formatação condicional
+    # prepara download em Excel via openpyxl
     buf = BytesIO()
-    # escreve DataFrame no buffer
-    with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
+    # 1) escreve com engine openpyxl
+    with pd.ExcelWriter(buf, engine='openpyxl') as writer:
         df_sim.to_excel(writer, sheet_name="Similaridade")
-        wb  = writer.book
-        ws  = writer.sheets["Similaridade"]
-        (r, c) = df_sim.shape
-        start = xl_rowcol_to_cell(1, 1)
-        end   = xl_rowcol_to_cell(r, c)
-        # aplica escala de cores
-        ws.conditional_format(f"{start}:{end}", {
-            'type':       '3_color_scale',
-            'min_type':   'min',   'min_color':  "#FF0000",
-            'mid_type':   'percentile', 'mid_value':50, 'mid_color':"#FFFF00",
-            'max_type':   'max',   'max_color':  "#00FF00"
-        })
     buf.seek(0)
 
+    # 2) abre com openpyxl e adiciona formatação
+    wb = load_workbook(buf)
+    ws = wb["Similaridade"]
+
+    # intervalo: da coluna B até a última, linhas 2 até max_row
+    min_col = 2
+    max_col = ws.max_column
+    max_row = ws.max_row
+    def col_letter(idx):
+        return ws.cell(row=1, column=idx).column_letter
+    range_str = f"{col_letter(min_col)}2:{col_letter(max_col)}{max_row}"
+
+    # 3) cria ColorScaleRule (vermelho→amarelo→verde)
+    rule = ColorScaleRule(
+        start_type='min', start_color='FF0000',
+        mid_type='percentile', mid_value=50, mid_color='FFFF00',
+        end_type='max', end_color='00FF00'
+    )
+    ws.conditional_formatting.add(range_str, rule)
+
+    # 4) salva de volta no buffer
+    buf2 = BytesIO()
+    wb.save(buf2)
+    buf2.seek(0)
+
+    # 5) botão de download
     st.download_button(
         "⬇️ Baixar Matriz de Similaridade",
-        data=buf,
+        data=buf2,
         file_name="sim_enade_ementa_colorido.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
